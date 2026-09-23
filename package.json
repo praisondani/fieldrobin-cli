@@ -1,0 +1,44 @@
+{
+  "name": "@fieldrobin/cli",
+  "version": "0.1.2",
+  "description": "CLI for FieldRobin public API health, llms.txt discovery, OpenAPI, and product search — no workspace login",
+  "type": "module",
+  "bin": {
+    "fieldrobin": "bin/fieldrobin.mjs"
+  },
+  "keywords": [
+    "fieldrobin",
+    "field-service",
+    "fsm",
+    "api",
+    "openapi",
+    "agent",
+    "cli",
+    "mcp"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/praisondani/fieldrobin-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/praisondani/fieldrobin-cli/issues"
+  },
+  "homepage": "https://fieldrobin.com/developers",
+  "scripts": {
+    "test": "node --test test/cli.test.mjs",
+    "prepublishOnly": "npm test"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ]
+}
