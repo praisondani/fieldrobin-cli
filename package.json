@@ -1,6 +1,6 @@
 {
   "name": "@fieldrobin/cli",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "CLI for FieldRobin public API health, llms.txt discovery, OpenAPI, and product search — no workspace login",
   "type": "module",
   "bin": {
@@ -21,7 +21,8 @@
   },
   "license": "MIT",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "repository": {
     "type": "git",
