@@ -27,7 +27,6 @@ jobs:
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
-          package-manager-cache: false
 
       - name: Install package dependencies
         run: npm install --no-audit --no-fund --ignore-scripts
