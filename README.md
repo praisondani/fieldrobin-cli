@@ -8,20 +8,16 @@ inspect and call workspace tools when you provide an OAuth access token. The
 CLI does not collect or store credentials; use FieldRobin’s OAuth flow to get a
 token. See https://fieldrobin.com/auth.md for client registration and consent.
 
-## Published version
+## MCP and doctor version support
 
-The npm `latest` release is currently `0.1.3`. It includes the public commands;
-the `doctor` and authenticated `mcp` commands described below are in source
-version `0.2.0` and are not available from npm yet. Check the registry before
-installing:
+The `doctor` and `mcp` commands require `@fieldrobin/cli` version `0.2.0` or
+later. Check the version published to npm:
 
 ```sh
 npm view @fieldrobin/cli version
 ```
 
-The public `codex/npm-release-status` branch includes version `0.2.0`, with the
-MCP and doctor commands. Install both packages from that branch until the CLI
-changes reach `main` and npm publishes `0.2.0`:
+If npm has not published `0.2.0` yet, install the public GitHub source versions:
 
 ```sh
 npm install github:praisondani/fieldrobin-sdk#v0.2.0 github:praisondani/fieldrobin-cli#codex/npm-release-status
@@ -44,8 +40,7 @@ Related public packages:
 
 ## What it does
 
-The current npm release includes the public commands. The doctor and MCP
-commands require source version `0.2.0` until that version is published to npm.
+The `doctor` and `mcp` commands require CLI version `0.2.0` or later.
 
 | Command | Action |
 | --- | --- |
@@ -83,8 +78,8 @@ Or run once without a global install:
 npx --yes @fieldrobin/cli discover
 ```
 
-The npm `latest` release does not include `doctor` or MCP commands yet. For
-version `0.2.0`, use the GitHub source install shown above in your project.
+The `doctor` and `mcp` commands require CLI version `0.2.0` or later. If npm has
+not published that version yet, use the GitHub source install shown above.
 
 ## Examples
 
@@ -96,7 +91,7 @@ fieldrobin openapi
 fieldrobin version
 ```
 
-With source version `0.2.0`, check the public integration endpoints and list
+With CLI version `0.2.0` or later, check the public integration endpoints and list
 MCP tools without signing in. To call a workspace tool, make
 `FIELDROBIN_MCP_TOKEN` available to the process through your secret manager or
 protected environment:

@@ -488,7 +488,8 @@ test("checks production health before MCP or OAuth setup", () => {
   assert.match(readme, /fieldrobin doctor/);
   assert.match(readme, /OAuth metadata/i);
   assert.match(readme, /does not send.*token/i);
-  assert.match(readme, /current npm release.*public commands/i);
+  assert.match(readme, /`doctor` and `mcp` commands require.*0\.2\.0` or later/i);
+  assert.match(readme, /npm view @fieldrobin\/cli version/);
 });
 
 test("doctor checks API health, OAuth discovery, and public MCP tools without sending credentials", async () => {
@@ -581,7 +582,10 @@ test("doctor prints readable check results and a next step without JSON mode", a
   }
 });
 
-test("documents the doctor-enabled source branch until the npm 0.2.0 release", () => {
+test("documents the minimum published version for MCP and doctor commands", () => {
+  assert.match(readme, /`doctor` and `mcp` commands require.*0\.2\.0` or later/i);
+  assert.match(readme, /npm view @fieldrobin\/cli version/);
+  assert.doesNotMatch(readme, /npm `latest` release is currently `0\.1\.3`/);
   assert.match(readme, /github:praisondani\/fieldrobin-cli#codex\/npm-release-status/);
   assert.doesNotMatch(readme, /github:praisondani\/fieldrobin-cli#main/);
 });
