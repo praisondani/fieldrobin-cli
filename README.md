@@ -8,6 +8,17 @@ inspect and call workspace tools when you provide an OAuth access token. The
 CLI does not collect or store credentials; use FieldRobin’s OAuth flow to get a
 token. See https://fieldrobin.com/auth.md for client registration and consent.
 
+## Published version
+
+The npm `latest` release is currently `0.1.3`. It includes the public commands;
+the authenticated `mcp` commands described below are in source version `0.2.0`
+and are not available from npm yet. They require `@fieldrobin/cli@0.2.0` or
+later. Check the registry before installing:
+
+```sh
+npm view @fieldrobin/cli version
+```
+
 The FieldRobin product repository is private. **This repository** is the
 public source for the npm package
 [`@fieldrobin/cli`](https://www.npmjs.com/package/@fieldrobin/cli).
