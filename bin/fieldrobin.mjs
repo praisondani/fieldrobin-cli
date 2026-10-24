@@ -14,6 +14,7 @@ function usage() {
     "Usage:",
     "  fieldrobin discover [--base-url URL] [--json]",
     "  fieldrobin health [--base-url URL] [--json]",
+    "  fieldrobin doctor [--base-url URL] [--json]",
     "  fieldrobin search QUERY [--base-url URL] [--json]",
     "  fieldrobin openapi [--base-url URL] [--json]",
     "  fieldrobin mcp tools [--base-url URL] [--json]",
@@ -24,6 +25,7 @@ function usage() {
     "  FIELDROBIN_BASE_URL  Override the default https://fieldrobin.com base URL.",
     "  FIELDROBIN_MCP_TOKEN OAuth access token for authenticated MCP tool calls.",
     "",
+    "Doctor checks public health, OAuth metadata, and MCP tools without a workspace token.",
     "MCP calls require an OAuth token with mcp:read. Tools that may change workspace data require --approve.",
   ].join("\n");
 }
@@ -140,6 +142,104 @@ async function runMcpCommand(baseUrl, subcommand, args, { approve } = {}) {
   return mcp.callTool(name, toolArguments);
 }
 
+async function runReadinessCheck(name, check) {
+  try {
+    return { name, ok: true, ...(await check()) };
+  } catch (error) {
+    return {
+      name,
+      ok: false,
+      ...(error?.status ? { status: error.status } : {}),
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function requireMetadata(condition, message, status) {
+  if (condition) return;
+  const error = new Error(message);
+  error.status = status;
+  throw error;
+}
+
+async function runDoctor(baseUrl) {
+  const checks = await Promise.all([
+    runReadinessCheck("api_health", async () => {
+      const result = await fetchResource(baseUrl, "/api/health");
+      requireMetadata(result.body?.status === "ok", "Health endpoint returned an unexpected response.", result.status);
+      return { status: result.status };
+    }),
+    runReadinessCheck("oauth_authorization_server", async () => {
+      const result = await fetchResource(baseUrl, "/.well-known/oauth-authorization-server");
+      const metadata = result.body;
+      requireMetadata(
+        typeof metadata?.issuer === "string"
+          && typeof metadata.authorization_endpoint === "string"
+          && typeof metadata.token_endpoint === "string"
+          && typeof metadata.registration_endpoint === "string"
+          && typeof metadata.jwks_uri === "string",
+        "Authorization server metadata is missing a required endpoint.",
+        result.status,
+      );
+      return { status: result.status };
+    }),
+    runReadinessCheck("oauth_protected_resource", async () => {
+      const result = await fetchResource(baseUrl, "/.well-known/oauth-protected-resource");
+      const metadata = result.body;
+      requireMetadata(
+        typeof metadata?.resource === "string"
+          && Array.isArray(metadata.authorization_servers)
+          && metadata.authorization_servers.length > 0,
+        "Protected resource metadata is missing its resource or authorization server.",
+        result.status,
+      );
+      return { status: result.status };
+    }),
+    runReadinessCheck("mcp_tools", async () => {
+      // Readiness is public discovery. Never forward a user's workspace token.
+      const mcp = new FieldRobinMcpClient({ baseUrl });
+      const result = await mcp.listTools();
+      const tools = result?.tools;
+      requireMetadata(
+        Array.isArray(tools) && tools.length > 0 && tools.every((tool) => typeof tool?.name === "string"),
+        "MCP returned no valid public tool catalog.",
+        200,
+      );
+      return { status: 200, tool_count: tools.length };
+    }),
+  ]);
+
+  return {
+    base_url: baseUrl,
+    ready: checks.every((check) => check.ok),
+    checks,
+  };
+}
+
+function printDoctorResult(report, json) {
+  if (json) {
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    return;
+  }
+
+  process.stdout.write(`FieldRobin public endpoints: ${report.ready ? "ready" : "not ready"}\n`);
+  const labels = {
+    api_health: "API health",
+    oauth_authorization_server: "OAuth authorization server",
+    oauth_protected_resource: "OAuth protected resource",
+    mcp_tools: "MCP tool catalog",
+  };
+  for (const check of report.checks) {
+    const detail = check.ok
+      ? check.name === "mcp_tools" ? ` (${check.tool_count} tools)` : ` (HTTP ${check.status})`
+      : ` — ${check.error}${check.status ? ` (HTTP ${check.status})` : ""}`;
+    process.stdout.write(`${check.ok ? "PASS" : "FAIL"} ${labels[check.name] || check.name}${detail}\n`);
+  }
+  if (!report.ready) {
+    process.stdout.write("Fix the failed public endpoints, then rerun `fieldrobin doctor`. No workspace token is used.\n");
+  }
+}
+
 function printResult(result, json) {
   if (json) {
     process.stdout.write(`${JSON.stringify(result.body, null, 2)}\n`);
@@ -182,6 +282,11 @@ async function main() {
     result = {
       body: await runMcpCommand(baseUrl, subcommand, mcpArgs, { approve }),
     };
+  } else if (command === "doctor") {
+    const report = await runDoctor(baseUrl);
+    printDoctorResult(report, json);
+    if (!report.ready) process.exitCode = 1;
+    return;
   } else {
     throw new Error(`Unknown command: ${command}\n\n${usage()}`);
   }

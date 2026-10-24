@@ -11,29 +11,25 @@ token. See https://fieldrobin.com/auth.md for client registration and consent.
 ## Published version
 
 The npm `latest` release is currently `0.1.3`. It includes the public commands;
-the authenticated `mcp` commands described below are in source version `0.2.0`
-and are not available from npm yet. They require `@fieldrobin/cli@0.2.0` or
-later. Check the registry before installing:
+the `doctor` and authenticated `mcp` commands described below are in source
+version `0.2.0` and are not available from npm yet. Check the registry before
+installing:
 
 ```sh
 npm view @fieldrobin/cli version
 ```
 
-To use the authenticated MCP commands before the npm `0.2.0` release, install
-the SDK tag and CLI source together from their public GitHub repositories:
+The public GitHub source includes version `0.2.0`, with the MCP and doctor
+commands. Install both packages in your project until npm publishes `0.2.0`:
 
 ```sh
 npm install github:praisondani/fieldrobin-sdk#v0.2.0 github:praisondani/fieldrobin-cli#main
+npx fieldrobin doctor
 ```
 
-The install uses SDK and CLI package version `0.2.0`; npm `latest` still does
-not include the MCP commands.
-
-Before using the MCP commands, check `https://fieldrobin.com/api/health`.
-HTTP 200 confirms that the Laravel API route is reachable, but MCP and
-OAuth are available only after the full production smoke passes. If health
-returns 404 or an MCP/OAuth request fails, stop and wait for a successful
-release check.
+`fieldrobin doctor` checks the API health route, OAuth metadata, and MCP tool
+catalog. It does not send an OAuth token or read workspace data. A nonzero exit
+code means at least one public integration endpoint is unavailable.
 
 The FieldRobin product repository is private. **This repository** is the
 public source for the npm package
@@ -47,10 +43,14 @@ Related public packages:
 
 ## What it does
 
+The current npm release includes the public commands. The doctor and MCP
+commands require source version `0.2.0` until that version is published to npm.
+
 | Command | Action |
 | --- | --- |
 | `fieldrobin discover` | Fetch `/llms.txt` (public agent index) |
 | `fieldrobin health` | Fetch `/api/health` |
+| `fieldrobin doctor` | Check health, OAuth metadata, and unauthenticated MCP tools |
 | `fieldrobin search "…"` | Keyword search over approved public Markdown |
 | `fieldrobin openapi` | Fetch `/openapi.json` |
 | `fieldrobin mcp tools` | List MCP tools and their input schemas |
@@ -82,6 +82,9 @@ Or run once without a global install:
 npx --yes @fieldrobin/cli discover
 ```
 
+The npm `latest` release does not include `doctor` or MCP commands yet. For
+version `0.2.0`, use the GitHub source install shown above in your project.
+
 ## Examples
 
 ```sh
@@ -92,11 +95,13 @@ fieldrobin openapi
 fieldrobin version
 ```
 
-List tools without signing in. To call a workspace tool, make
+With source version `0.2.0`, check the public integration endpoints and list
+MCP tools without signing in. To call a workspace tool, make
 `FIELDROBIN_MCP_TOKEN` available to the process through your secret manager or
 protected environment:
 
 ```sh
+fieldrobin doctor
 fieldrobin mcp tools --json
 fieldrobin mcp call get-workspace-summary '{}'
 ```
