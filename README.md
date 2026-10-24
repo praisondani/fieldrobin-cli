@@ -29,6 +29,12 @@ npm install github:praisondani/fieldrobin-sdk#v0.2.0 github:praisondani/fieldrob
 The install uses SDK and CLI package version `0.2.0`; npm `latest` still does
 not include the MCP commands.
 
+Before using the MCP commands, check `https://fieldrobin.com/api/health`.
+HTTP 200 confirms that the Laravel API route is reachable, but MCP and
+OAuth are available only after the full production smoke passes. If health
+returns 404 or an MCP/OAuth request fails, stop and wait for a successful
+release check.
+
 The FieldRobin product repository is private. **This repository** is the
 public source for the npm package
 [`@fieldrobin/cli`](https://www.npmjs.com/package/@fieldrobin/cli).

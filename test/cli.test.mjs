@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { createRequire } from "node:module";
@@ -10,6 +11,7 @@ import { test } from "node:test";
 const execFileAsync = promisify(execFile);
 const cliPath = fileURLToPath(new URL("../bin/fieldrobin.mjs", import.meta.url));
 const packageJson = createRequire(import.meta.url)("../package.json");
+const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 
 async function runCli(args, environment = {}) {
   const env = { ...process.env };
@@ -389,4 +391,10 @@ test("explains which OAuth scope is needed when a write call is denied", async (
   } finally {
     await fixture.close();
   }
+});
+
+test("checks production health before MCP or OAuth setup", () => {
+  assert.match(readme, /\/api\/health/);
+  assert.match(readme, /HTTP 200/);
+  assert.match(readme, /stop|do not continue|wait/i);
 });
