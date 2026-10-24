@@ -179,7 +179,7 @@ async function startMcpFixtureServer({ toolError = false, scopeError = false } =
   };
 }
 
-async function startDoctorFixtureServer({ ready = true } = {}) {
+async function startDoctorFixtureServer({ ready = true, healthVersion = "v1" } = {}) {
   const requests = [];
   const server = createServer(async (request, response) => {
     const chunks = [];
@@ -196,7 +196,7 @@ async function startDoctorFixtureServer({ ready = true } = {}) {
 
     if (request.method === "GET" && url.pathname === "/api/health") {
       response.writeHead(200, { "Content-Type": "application/json" });
-      response.end(JSON.stringify({ status: "ok", version: "test" }));
+      response.end(JSON.stringify({ status: "ok", version: healthVersion }));
       return;
     }
 
@@ -522,6 +522,22 @@ test("doctor checks API health, OAuth discovery, and public MCP tools without se
       "tools/list",
     ]);
     assert.ok(mcpRequests.every(({ headers }) => !headers.authorization));
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("doctor rejects an unexpected API health version", async () => {
+  const fixture = await startDoctorFixtureServer({ healthVersion: "v2" });
+
+  try {
+    const result = await runCli(["doctor", "--base-url", fixture.baseUrl, "--json"]);
+
+    assert.equal(result.code, 1);
+    const report = JSON.parse(result.stdout);
+    const healthCheck = report.checks.find(({ name }) => name === "api_health");
+    assert.equal(healthCheck.ok, false);
+    assert.equal(healthCheck.status, 200);
   } finally {
     await fixture.close();
   }

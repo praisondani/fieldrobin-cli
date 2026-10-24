@@ -166,7 +166,11 @@ async function runDoctor(baseUrl) {
   const checks = await Promise.all([
     runReadinessCheck("api_health", async () => {
       const result = await fetchResource(baseUrl, "/api/health");
-      requireMetadata(result.body?.status === "ok", "Health endpoint returned an unexpected response.", result.status);
+      requireMetadata(
+        result.body?.status === "ok" && result.body?.version === "v1",
+        "Health endpoint returned an unexpected status or version.",
+        result.status,
+      );
       return { status: result.status };
     }),
     runReadinessCheck("oauth_authorization_server", async () => {
