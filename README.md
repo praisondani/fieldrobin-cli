@@ -19,6 +19,16 @@ later. Check the registry before installing:
 npm view @fieldrobin/cli version
 ```
 
+To use the authenticated MCP commands before the npm `0.2.0` release, install
+the SDK tag and CLI source together from their public GitHub repositories:
+
+```sh
+npm install github:praisondani/fieldrobin-sdk#v0.2.0 github:praisondani/fieldrobin-cli#main
+```
+
+The install uses SDK and CLI package version `0.2.0`; npm `latest` still does
+not include the MCP commands.
+
 The FieldRobin product repository is private. **This repository** is the
 public source for the npm package
 [`@fieldrobin/cli`](https://www.npmjs.com/package/@fieldrobin/cli).
