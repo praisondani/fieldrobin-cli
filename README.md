@@ -8,6 +8,26 @@ inspect and call workspace tools when you provide an OAuth access token. The
 CLI does not collect or store credentials; use FieldRobin’s OAuth flow to get a
 token. See https://fieldrobin.com/auth.md for client registration and consent.
 
+## MCP and doctor version support
+
+The `doctor` and `mcp` commands require `@fieldrobin/cli` version `0.2.0` or
+later. Check the version published to npm:
+
+```sh
+npm view @fieldrobin/cli version
+```
+
+If npm has not published `0.2.0` yet, install the public GitHub source versions:
+
+```sh
+npm install github:praisondani/fieldrobin-sdk#v0.2.0 github:praisondani/fieldrobin-cli#codex/npm-release-status
+npx fieldrobin doctor
+```
+
+`fieldrobin doctor` checks the API health route, OAuth metadata, and MCP tool
+catalog. It does not send an OAuth token or read workspace data. A nonzero exit
+code means at least one public integration endpoint is unavailable.
+
 The FieldRobin product repository is private. **This repository** is the
 public source for the npm package
 [`@fieldrobin/cli`](https://www.npmjs.com/package/@fieldrobin/cli).
@@ -20,10 +40,13 @@ Related public packages:
 
 ## What it does
 
+The `doctor` and `mcp` commands require CLI version `0.2.0` or later.
+
 | Command | Action |
 | --- | --- |
 | `fieldrobin discover` | Fetch `/llms.txt` (public agent index) |
 | `fieldrobin health` | Fetch `/api/health` |
+| `fieldrobin doctor` | Check health, OAuth metadata, and unauthenticated MCP tools |
 | `fieldrobin search "…"` | Keyword search over approved public Markdown |
 | `fieldrobin openapi` | Fetch `/openapi.json` |
 | `fieldrobin mcp tools` | List MCP tools and their input schemas |
@@ -55,6 +78,9 @@ Or run once without a global install:
 npx --yes @fieldrobin/cli discover
 ```
 
+The `doctor` and `mcp` commands require CLI version `0.2.0` or later. If npm has
+not published that version yet, use the GitHub source install shown above.
+
 ## Examples
 
 ```sh
@@ -65,11 +91,13 @@ fieldrobin openapi
 fieldrobin version
 ```
 
-List tools without signing in. To call a workspace tool, make
+With CLI version `0.2.0` or later, check the public integration endpoints and list
+MCP tools without signing in. To call a workspace tool, make
 `FIELDROBIN_MCP_TOKEN` available to the process through your secret manager or
 protected environment:
 
 ```sh
+fieldrobin doctor
 fieldrobin mcp tools --json
 fieldrobin mcp call get-workspace-summary '{}'
 ```

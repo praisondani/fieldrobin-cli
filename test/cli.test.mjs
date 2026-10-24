@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { createRequire } from "node:module";
@@ -10,6 +11,7 @@ import { test } from "node:test";
 const execFileAsync = promisify(execFile);
 const cliPath = fileURLToPath(new URL("../bin/fieldrobin.mjs", import.meta.url));
 const packageJson = createRequire(import.meta.url)("../package.json");
+const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 
 async function runCli(args, environment = {}) {
   const env = { ...process.env };
@@ -177,11 +179,102 @@ async function startMcpFixtureServer({ toolError = false, scopeError = false } =
   };
 }
 
+async function startDoctorFixtureServer({ ready = true, healthVersion = "v1" } = {}) {
+  const requests = [];
+  const server = createServer(async (request, response) => {
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : null;
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    requests.push({ method: request.method, url, headers: request.headers, body });
+
+    if (!ready) {
+      response.writeHead(404, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ code: "NOT_FOUND" }));
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/health") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ status: "ok", version: healthVersion }));
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/.well-known/oauth-authorization-server") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({
+        issuer: "https://fieldrobin.test",
+        authorization_endpoint: "https://fieldrobin.test/oauth/authorize",
+        token_endpoint: "https://fieldrobin.test/oauth/token",
+        registration_endpoint: "https://fieldrobin.test/api/oauth/register",
+        jwks_uri: "https://fieldrobin.test/api/v1/oauth/jwks",
+      }));
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/.well-known/oauth-protected-resource") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({
+        resource: "https://fieldrobin.test/api/v1/mcp",
+        authorization_servers: ["https://fieldrobin.test"],
+      }));
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/v1/mcp") {
+      if (body?.method === "initialize") {
+        response.writeHead(200, {
+          "Content-Type": "application/json",
+          "Mcp-Session-Id": "doctor-session",
+        });
+        response.end(JSON.stringify({
+          jsonrpc: "2.0",
+          id: body.id,
+          result: { protocolVersion: "2025-11-25" },
+        }));
+        return;
+      }
+
+      if (body?.method === "notifications/initialized") {
+        response.writeHead(202);
+        response.end();
+        return;
+      }
+
+      if (body?.method === "tools/list") {
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({
+          jsonrpc: "2.0",
+          id: body.id,
+          result: { tools: [{ name: "get-workspace-summary" }] },
+        }));
+        return;
+      }
+    }
+
+    response.writeHead(404, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ code: "NOT_FOUND" }));
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+
+  assert.equal(typeof address, "object");
+
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    requests,
+    close: () => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())),
+  };
+}
+
 test("prints help without making a network request", async () => {
   const result = await runCli(["--help"]);
 
   assert.equal(result.code, 0);
   assert.match(result.stdout, /fieldrobin discover/);
+  assert.match(result.stdout, /fieldrobin doctor/);
   assert.match(result.stdout, /fieldrobin search QUERY/);
   assert.match(result.stdout, /fieldrobin openapi/);
 });
@@ -389,4 +482,110 @@ test("explains which OAuth scope is needed when a write call is denied", async (
   } finally {
     await fixture.close();
   }
+});
+
+test("checks production health before MCP or OAuth setup", () => {
+  assert.match(readme, /fieldrobin doctor/);
+  assert.match(readme, /OAuth metadata/i);
+  assert.match(readme, /does not send.*token/i);
+  assert.match(readme, /`doctor` and `mcp` commands require.*0\.2\.0` or later/i);
+  assert.match(readme, /npm view @fieldrobin\/cli version/);
+});
+
+test("doctor checks API health, OAuth discovery, and public MCP tools without sending credentials", async () => {
+  const fixture = await startDoctorFixtureServer();
+
+  try {
+    const result = await runCli(
+      ["doctor", "--base-url", fixture.baseUrl, "--json"],
+      { FIELDROBIN_MCP_TOKEN: "must-not-be-sent-by-doctor" },
+    );
+
+    assert.equal(result.code, 0);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.ready, true);
+    assert.deepEqual(report.checks.map(({ name, ok }) => [name, ok]), [
+      ["api_health", true],
+      ["oauth_authorization_server", true],
+      ["oauth_protected_resource", true],
+      ["mcp_tools", true],
+    ]);
+    assert.equal(report.checks.at(-1).tool_count, 1);
+    assert.deepEqual(fixture.requests.filter(({ method }) => method === "GET").map(({ url }) => url.pathname), [
+      "/api/health",
+      "/.well-known/oauth-authorization-server",
+      "/.well-known/oauth-protected-resource",
+    ]);
+    const mcpRequests = fixture.requests.filter(({ method }) => method === "POST");
+    assert.deepEqual(mcpRequests.map(({ body }) => body.method), [
+      "initialize",
+      "notifications/initialized",
+      "tools/list",
+    ]);
+    assert.ok(mcpRequests.every(({ headers }) => !headers.authorization));
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("doctor rejects an unexpected API health version", async () => {
+  const fixture = await startDoctorFixtureServer({ healthVersion: "v2" });
+
+  try {
+    const result = await runCli(["doctor", "--base-url", fixture.baseUrl, "--json"]);
+
+    assert.equal(result.code, 1);
+    const report = JSON.parse(result.stdout);
+    const healthCheck = report.checks.find(({ name }) => name === "api_health");
+    assert.equal(healthCheck.ok, false);
+    assert.equal(healthCheck.status, 200);
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("doctor reports all unavailable integration surfaces and returns a failing exit code", async () => {
+  const fixture = await startDoctorFixtureServer({ ready: false });
+
+  try {
+    const result = await runCli(["doctor", "--base-url", fixture.baseUrl, "--json"]);
+
+    assert.equal(result.code, 1);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.ready, false);
+    assert.deepEqual(report.checks.map(({ name, ok }) => [name, ok]), [
+      ["api_health", false],
+      ["oauth_authorization_server", false],
+      ["oauth_protected_resource", false],
+      ["mcp_tools", false],
+    ]);
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("doctor prints readable check results and a next step without JSON mode", async () => {
+  const fixture = await startDoctorFixtureServer({ ready: false });
+
+  try {
+    const result = await runCli(["doctor", "--base-url", fixture.baseUrl]);
+
+    assert.equal(result.code, 1);
+    assert.match(result.stdout, /FieldRobin public endpoints: not ready/);
+    assert.match(result.stdout, /FAIL API health/);
+    assert.match(result.stdout, /FAIL OAuth authorization server/);
+    assert.match(result.stdout, /FAIL OAuth protected resource/);
+    assert.match(result.stdout, /FAIL MCP tool catalog/);
+    assert.match(result.stdout, /rerun `fieldrobin doctor`/);
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("documents the minimum published version for MCP and doctor commands", () => {
+  assert.match(readme, /`doctor` and `mcp` commands require.*0\.2\.0` or later/i);
+  assert.match(readme, /npm view @fieldrobin\/cli version/);
+  assert.doesNotMatch(readme, /npm `latest` release is currently `0\.1\.3`/);
+  assert.match(readme, /github:praisondani\/fieldrobin-cli#codex\/npm-release-status/);
+  assert.doesNotMatch(readme, /github:praisondani\/fieldrobin-cli#main/);
 });
