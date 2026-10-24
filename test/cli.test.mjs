@@ -564,3 +564,8 @@ test("doctor prints readable check results and a next step without JSON mode", a
     await fixture.close();
   }
 });
+
+test("documents the doctor-enabled source branch until the npm 0.2.0 release", () => {
+  assert.match(readme, /github:praisondani\/fieldrobin-cli#codex\/npm-release-status/);
+  assert.doesNotMatch(readme, /github:praisondani\/fieldrobin-cli#main/);
+});

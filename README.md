@@ -19,11 +19,12 @@ installing:
 npm view @fieldrobin/cli version
 ```
 
-The public GitHub source includes version `0.2.0`, with the MCP and doctor
-commands. Install both packages in your project until npm publishes `0.2.0`:
+The public `codex/npm-release-status` branch includes version `0.2.0`, with the
+MCP and doctor commands. Install both packages from that branch until the CLI
+changes reach `main` and npm publishes `0.2.0`:
 
 ```sh
-npm install github:praisondani/fieldrobin-sdk#v0.2.0 github:praisondani/fieldrobin-cli#main
+npm install github:praisondani/fieldrobin-sdk#v0.2.0 github:praisondani/fieldrobin-cli#codex/npm-release-status
 npx fieldrobin doctor
 ```
 
